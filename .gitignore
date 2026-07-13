@@ -1,0 +1,13 @@
+build/
+Objects/
+Listings/
+*.uvguix.*
+*.uvoptx
+*.bak
+*.dep
+*.o
+*.d
+*.crf
+*.axf
+*.map
+*.lnp
