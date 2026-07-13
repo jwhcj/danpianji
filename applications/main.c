@@ -62,6 +62,8 @@ static rt_thread_t key_scan_thread = RT_NULL;
 static rt_thread_t mode_ctrl_thread = RT_NULL;
 static rt_thread_t led_effect_thread = RT_NULL;
 
+static int application_ready = 0;
+
 
 static void led_write_all(rt_uint8_t level1,
                           rt_uint8_t level2,
@@ -75,11 +77,13 @@ static void led_write_all(rt_uint8_t level1,
 static void led_all_on(void)
 {
     led_write_all(LED_ON_LEVEL, LED_ON_LEVEL, LED_ON_LEVEL);
+    rt_kprintf("[LED] all on\n");
 }
 
 static void led_all_off(void)
 {
     led_write_all(LED_OFF_LEVEL, LED_OFF_LEVEL, LED_OFF_LEVEL);
+    rt_kprintf("[LED] all off\n");
 }
 
 static void led_show_one(rt_uint8_t index)
@@ -87,12 +91,75 @@ static void led_show_one(rt_uint8_t index)
     led_write_all((index == 0u) ? LED_ON_LEVEL : LED_OFF_LEVEL,
                   (index == 1u) ? LED_ON_LEVEL : LED_OFF_LEVEL,
                   (index == 2u) ? LED_ON_LEVEL : LED_OFF_LEVEL);
-}
 
+    if (index == 0u)
+    {
+        rt_kprintf("[LED] LED1 on\n");
+    }
+    else if (index == 1u)
+    {
+        rt_kprintf("[LED] LED2 on\n");
+    }
+    else
+    {
+        rt_kprintf("[LED] LED3 on\n");
+    }
+}
 static rt_uint8_t key_read_level(rt_int32_t pin)
 {
     return (rt_pin_read(pin) == PIN_HIGH) ? 1u : 0u;
 }
+
+static rt_uint32_t key_to_event_bit(app_key_t key)
+{
+    switch (key)
+    {
+    case APP_KEY_1:
+        return KEY_EVENT_1;
+    case APP_KEY_2:
+        return KEY_EVENT_2;
+    case APP_KEY_3:
+        return KEY_EVENT_3;
+    default:
+        return 0u;
+    }
+}
+
+int key_sim(int argc, char **argv)
+{
+    app_key_t key;
+    rt_uint32_t key_event_bit;
+    rt_err_t result;
+
+    if (argc != 2)
+    {
+        rt_kprintf("usage: key_sim 1|2|3\n");
+        return -1;
+    }
+
+    key = app_key_from_text(argv[1]);
+    key_event_bit = key_to_event_bit(key);
+    if (key_event_bit == 0u)
+    {
+        rt_kprintf("usage: key_sim 1|2|3\n");
+        return -1;
+    }
+
+    if (!application_ready)
+    {
+        rt_kprintf("[sim] application is not ready\n");
+        return -1;
+    }
+
+    result = rt_event_send(&key_event, key_event_bit);
+    if (result != RT_EOK)
+    {
+        rt_kprintf("[sim] send key event failed: %d\n", result);
+        return -1;
+    }
+    return 0;
+}
+MSH_CMD_EXPORT(key_sim, simulate key press);
 
 static void key_scan_entry(void *parameter)
 {
@@ -394,7 +461,8 @@ int main(void)
         return -1;
     }
 
-        rt_kprintf("[app] three-key LED event demo started\n");
+           application_ready = 1;
+    rt_kprintf("[app] three-key LED event demo started\n");
 
 
     return 0;
