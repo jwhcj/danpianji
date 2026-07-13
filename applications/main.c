@@ -40,6 +40,12 @@
 #define KEY_SCAN_INTERVAL_MS        20
 #define FLOW_INTERVAL_MS            300
 
+#define KEY_SCAN_PRIORITY           8
+#define MODE_CTRL_PRIORITY          9
+#define LED_EFFECT_PRIORITY         10
+#define THREAD_STACK_SIZE           512
+#define THREAD_TIMESLICE            5
+
 #define KEY_EVENT_1                 (1u << 0)
 #define KEY_EVENT_2                 (1u << 1)
 #define KEY_EVENT_3                 (1u << 2)
@@ -47,6 +53,10 @@
 
 static struct rt_event key_event;
 static struct rt_event led_event;
+
+static rt_thread_t key_scan_thread = RT_NULL;
+static rt_thread_t mode_ctrl_thread = RT_NULL;
+static rt_thread_t led_effect_thread = RT_NULL;
 
 
 static void led_write_all(rt_uint8_t level1,
@@ -78,6 +88,34 @@ static void led_show_one(rt_uint8_t index)
 static rt_uint8_t key_read_level(rt_int32_t pin)
 {
     return (rt_pin_read(pin) == PIN_HIGH) ? 1u : 0u;
+}
+
+static void key_scan_entry(void *parameter)
+{
+    (void)parameter;
+    while (1)
+    {
+        rt_thread_mdelay(KEY_SCAN_INTERVAL_MS);
+    }
+}
+
+static void mode_ctrl_entry(void *parameter)
+{
+    (void)parameter;
+    while (1)
+    {
+        rt_thread_mdelay(100);
+    }
+}
+
+static void led_effect_entry(void *parameter)
+{
+    (void)parameter;
+    led_all_off();
+    while (1)
+    {
+        rt_thread_mdelay(100);
+    }
 }
 
 int main(void)
