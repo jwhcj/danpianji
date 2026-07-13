@@ -66,6 +66,28 @@ void app_advance_led(app_state_t *state)
     }
 }
 
+app_key_t app_key_from_text(const char *text)
+{
+    if ((text == 0) || (text[0] == '\0') || (text[1] != '\0'))
+    {
+        return APP_KEY_NONE;
+    }
+
+    if (text[0] == '1')
+    {
+        return APP_KEY_1;
+    }
+    if (text[0] == '2')
+    {
+        return APP_KEY_2;
+    }
+    if (text[0] == '3')
+    {
+        return APP_KEY_3;
+    }
+    return APP_KEY_NONE;
+}
+
 void app_button_filter_init(app_button_filter_t *filter,
                             unsigned char initial_level)
 {

@@ -84,6 +84,19 @@ static void test_button_bounce_is_rejected(void)
     assert(app_button_filter_update(&filter, 0u, 0u) == 1);
 }
 
+static void test_key_text_parser(void)
+{
+    assert(app_key_from_text("1") == APP_KEY_1);
+    assert(app_key_from_text("2") == APP_KEY_2);
+    assert(app_key_from_text("3") == APP_KEY_3);
+    assert(app_key_from_text(0) == APP_KEY_NONE);
+    assert(app_key_from_text("") == APP_KEY_NONE);
+    assert(app_key_from_text("0") == APP_KEY_NONE);
+    assert(app_key_from_text("4") == APP_KEY_NONE);
+    assert(app_key_from_text("11") == APP_KEY_NONE);
+    assert(app_key_from_text("x") == APP_KEY_NONE);
+}
+
 int main(void)
 {
     test_mode_cycle();
@@ -91,5 +104,6 @@ int main(void)
     test_reverse_flow();
     test_button_debounce_and_long_press();
     test_button_bounce_is_rejected();
+    test_key_text_parser();
     return 0;
 }
