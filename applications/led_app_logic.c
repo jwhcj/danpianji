@@ -16,6 +16,13 @@ unsigned int app_handle_key(app_state_t *state, app_key_t key)
         return APP_CMD_FORWARD;
     }
 
+    if ((key == APP_KEY_2) && (state->key3_count == 2u))
+    {
+        state->mode = APP_MODE_FLOW_REVERSE;
+        state->flow_index = 2u;
+        return APP_CMD_REVERSE;
+    }
+
     if (key != APP_KEY_3)
     {
         return APP_CMD_NONE;
@@ -50,5 +57,11 @@ void app_advance_led(app_state_t *state)
     if (state->mode == APP_MODE_FLOW_FORWARD)
     {
         state->flow_index = (unsigned char)((state->flow_index + 1u) % 3u);
+    }
+    else if (state->mode == APP_MODE_FLOW_REVERSE)
+    {
+        state->flow_index = (state->flow_index == 0u)
+                          ? 2u
+                          : (unsigned char)(state->flow_index - 1u);
     }
 }
