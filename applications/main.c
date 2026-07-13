@@ -25,29 +25,22 @@
 #include <rtthread.h>
 #include <rtdevice.h>
 
-#define LED_PIN	3
+#define LED1_PIN                    1
+#define LED2_PIN                    2
+#define LED3_PIN                    3
+
+#define KEY1_PIN                    10
+#define KEY2_PIN                    11
+#define KEY3_PIN                    12
+
+#define KEY_ACTIVE_LEVEL            PIN_LOW
+#define LED_ON_LEVEL                PIN_HIGH
+#define LED_OFF_LEVEL               PIN_LOW
+
+#define KEY_SCAN_INTERVAL_MS        20
+#define FLOW_INTERVAL_MS            300
 
 int main(void)
 {
     return 0;
 }
-
-int led(void)
-{
-    rt_uint8_t count;
-
-    rt_pin_mode(LED_PIN, PIN_MODE_OUTPUT);  
-    
-    for(count = 0 ; count < 10 ;count++)
-    {       
-        rt_pin_write(LED_PIN, PIN_HIGH);
-        rt_kprintf("led on, count : %d\r\n", count);
-        rt_thread_mdelay(500);
-        
-        rt_pin_write(LED_PIN, PIN_LOW);
-        rt_kprintf("led off\r\n");
-        rt_thread_mdelay(500);
-    }
-    return 0;
-}
-MSH_CMD_EXPORT(led, RT-Thread first led sample);
