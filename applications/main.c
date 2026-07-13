@@ -67,6 +67,10 @@ static void led_show_one(rt_uint8_t index)
                   (index == 2u) ? LED_ON_LEVEL : LED_OFF_LEVEL);
 }
 
+static rt_uint8_t key_read_level(rt_int32_t pin)
+{
+    return (rt_pin_read(pin) == PIN_HIGH) ? 1u : 0u;
+}
 
 int main(void)
 {
@@ -74,5 +78,8 @@ int main(void)
     rt_pin_mode(LED2_PIN, PIN_MODE_OUTPUT);
     rt_pin_mode(LED3_PIN, PIN_MODE_OUTPUT);
     led_all_off();
+    rt_pin_mode(KEY1_PIN, PIN_MODE_INPUT_PULLUP);
+    rt_pin_mode(KEY2_PIN, PIN_MODE_INPUT_PULLUP);
+    rt_pin_mode(KEY3_PIN, PIN_MODE_INPUT_PULLUP);
     return 0;
 }
