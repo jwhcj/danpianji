@@ -173,6 +173,26 @@ static int create_threads(void)
 }
 
 
+static int start_threads(void)
+{
+    if (rt_thread_startup(led_effect_thread) != RT_EOK)
+    {
+        rt_kprintf("[error] start led_effect thread failed\n");
+        return -1;
+    }
+    if (rt_thread_startup(mode_ctrl_thread) != RT_EOK)
+    {
+        rt_kprintf("[error] start mode_ctrl thread failed\n");
+        return -1;
+    }
+    if (rt_thread_startup(key_scan_thread) != RT_EOK)
+    {
+        rt_kprintf("[error] start key_scan thread failed\n");
+        return -1;
+    }
+    return 0;
+}
+
 
 int main(void)
 {
@@ -206,6 +226,13 @@ int main(void)
     {
         return -1;
     }
+
+    if (start_threads() != 0)
+    {
+        return -1;
+    }
+
+    rt_kprintf("[app] three-thread framework started\n");
 
 
     return 0;
