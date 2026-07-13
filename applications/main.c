@@ -62,6 +62,8 @@ static rt_thread_t key_scan_thread = RT_NULL;
 static rt_thread_t mode_ctrl_thread = RT_NULL;
 static rt_thread_t led_effect_thread = RT_NULL;
 
+static int application_ready = 0;
+
 
 static void led_write_all(rt_uint8_t level1,
                           rt_uint8_t level2,
@@ -75,11 +77,13 @@ static void led_write_all(rt_uint8_t level1,
 static void led_all_on(void)
 {
     led_write_all(LED_ON_LEVEL, LED_ON_LEVEL, LED_ON_LEVEL);
+    rt_kprintf("[LED] all on\n");
 }
 
 static void led_all_off(void)
 {
     led_write_all(LED_OFF_LEVEL, LED_OFF_LEVEL, LED_OFF_LEVEL);
+    rt_kprintf("[LED] all off\n");
 }
 
 static void led_show_one(rt_uint8_t index)
@@ -87,41 +91,262 @@ static void led_show_one(rt_uint8_t index)
     led_write_all((index == 0u) ? LED_ON_LEVEL : LED_OFF_LEVEL,
                   (index == 1u) ? LED_ON_LEVEL : LED_OFF_LEVEL,
                   (index == 2u) ? LED_ON_LEVEL : LED_OFF_LEVEL);
-}
 
+    if (index == 0u)
+    {
+        rt_kprintf("[LED] LED1 on\n");
+    }
+    else if (index == 1u)
+    {
+        rt_kprintf("[LED] LED2 on\n");
+    }
+    else
+    {
+        rt_kprintf("[LED] LED3 on\n");
+    }
+}
 static rt_uint8_t key_read_level(rt_int32_t pin)
 {
     return (rt_pin_read(pin) == PIN_HIGH) ? 1u : 0u;
 }
 
+static rt_uint32_t key_to_event_bit(app_key_t key)
+{
+    switch (key)
+    {
+    case APP_KEY_1:
+        return KEY_EVENT_1;
+    case APP_KEY_2:
+        return KEY_EVENT_2;
+    case APP_KEY_3:
+        return KEY_EVENT_3;
+    default:
+        return 0u;
+    }
+}
+
+int key_sim(int argc, char **argv)
+{
+    app_key_t key;
+    rt_uint32_t key_event_bit;
+    rt_err_t result;
+
+    if (argc != 2)
+    {
+        rt_kprintf("usage: key_sim 1|2|3\n");
+        return -1;
+    }
+
+    key = app_key_from_text(argv[1]);
+    key_event_bit = key_to_event_bit(key);
+    if (key_event_bit == 0u)
+    {
+        rt_kprintf("usage: key_sim 1|2|3\n");
+        return -1;
+    }
+
+    if (!application_ready)
+    {
+        rt_kprintf("[sim] application is not ready\n");
+        return -1;
+    }
+
+    result = rt_event_send(&key_event, key_event_bit);
+    if (result != RT_EOK)
+    {
+        rt_kprintf("[sim] send key event failed: %d\n", result);
+        return -1;
+    }
+    return 0;
+}
+MSH_CMD_EXPORT(key_sim, simulate key press);
+
 static void key_scan_entry(void *parameter)
 {
+    app_button_filter_t key1_filter;
+    app_button_filter_t key2_filter;
+    app_button_filter_t key3_filter;
+    rt_uint8_t active_level;
+
     (void)parameter;
+    active_level = (KEY_ACTIVE_LEVEL == PIN_HIGH) ? 1u : 0u;
+
+    app_button_filter_init(&key1_filter, key_read_level(KEY1_PIN));
+    app_button_filter_init(&key2_filter, key_read_level(KEY2_PIN));
+    app_button_filter_init(&key3_filter, key_read_level(KEY3_PIN));
+
     while (1)
     {
+        if (app_button_filter_update(&key1_filter,
+                                     key_read_level(KEY1_PIN),
+                                     active_level))
+        {
+            (void)rt_event_send(&key_event, KEY_EVENT_1);
+        }
+
+        if (app_button_filter_update(&key2_filter,
+                                     key_read_level(KEY2_PIN),
+                                     active_level))
+        {
+            (void)rt_event_send(&key_event, KEY_EVENT_2);
+        }
+
+        if (app_button_filter_update(&key3_filter,
+                                     key_read_level(KEY3_PIN),
+                                     active_level))
+        {
+            (void)rt_event_send(&key_event, KEY_EVENT_3);
+        }
+
         rt_thread_mdelay(KEY_SCAN_INTERVAL_MS);
+    }
+}
+
+static unsigned int handle_received_key(app_state_t *state,
+                                        rt_uint32_t received)
+{
+    if ((received & KEY_EVENT_3) != 0u)
+    {
+        return app_handle_key(state, APP_KEY_3);
+    }
+    if ((received & KEY_EVENT_1) != 0u)
+    {
+        return app_handle_key(state, APP_KEY_1);
+    }
+    if ((received & KEY_EVENT_2) != 0u)
+    {
+        return app_handle_key(state, APP_KEY_2);
+    }
+    return APP_CMD_NONE;
+}
+
+static void print_mode_change(const app_state_t *state, unsigned int command)
+{
+    if (command == APP_CMD_ALL_ON)
+    {
+        rt_kprintf("[mode] key3 count=1, all LEDs on\n");
+    }
+    else if ((command == APP_CMD_ALL_OFF) &&
+             (state->mode == APP_MODE_FLOW_READY))
+    {
+        rt_kprintf("[mode] key3 count=2, flow mode ready\n");
+    }
+    else if (command == APP_CMD_ALL_OFF)
+    {
+        rt_kprintf("[mode] key3 count=0, all LEDs off\n");
+    }
+    else if (command == APP_CMD_FORWARD)
+    {
+        rt_kprintf("[flow] forward: LED1 -> LED2 -> LED3\n");
+    }
+    else if (command == APP_CMD_REVERSE)
+    {
+        rt_kprintf("[flow] reverse: LED3 -> LED2 -> LED1\n");
     }
 }
 
 static void mode_ctrl_entry(void *parameter)
 {
+    app_state_t state;
+    rt_uint32_t received;
+    unsigned int command;
+    rt_err_t result;
+
     (void)parameter;
+    app_state_init(&state);
+
     while (1)
     {
-        rt_thread_mdelay(100);
+        result = rt_event_recv(&key_event,
+                               KEY_EVENT_ALL,
+                               RT_EVENT_FLAG_OR | RT_EVENT_FLAG_CLEAR,
+                               RT_WAITING_FOREVER,
+                               &received);
+        if (result != RT_EOK)
+        {
+            rt_kprintf("[error] receive key event failed: %d\n", result);
+            continue;
+        }
+
+        command = handle_received_key(&state, received);
+        if (command != APP_CMD_NONE)
+        {
+            print_mode_change(&state, command);
+            result = rt_event_send(&led_event, command);
+            if (result != RT_EOK)
+            {
+                rt_kprintf("[error] send LED event failed: %d\n", result);
+            }
+        }
     }
 }
 
 static void led_effect_entry(void *parameter)
 {
+    app_state_t effect_state;
+    rt_uint32_t received;
+    rt_int32_t timeout;
+    rt_err_t result;
+    int running;
+
     (void)parameter;
+    app_state_init(&effect_state);
+    running = 0;
     led_all_off();
+
     while (1)
     {
-        rt_thread_mdelay(100);
+        timeout = running
+                ? (rt_int32_t)rt_tick_from_millisecond(FLOW_INTERVAL_MS)
+                : RT_WAITING_FOREVER;
+
+        result = rt_event_recv(&led_event,
+                               LED_EVENT_ALL,
+                               RT_EVENT_FLAG_OR | RT_EVENT_FLAG_CLEAR,
+                               timeout,
+                               &received);
+
+        if (result == RT_EOK)
+        {
+            if ((received & APP_CMD_ALL_OFF) != 0u)
+            {
+                running = 0;
+                app_state_init(&effect_state);
+                led_all_off();
+            }
+            else if ((received & APP_CMD_ALL_ON) != 0u)
+            {
+                running = 0;
+                effect_state.mode = APP_MODE_ALL_ON;
+                led_all_on();
+            }
+            else if ((received & APP_CMD_FORWARD) != 0u)
+            {
+                running = 1;
+                effect_state.mode = APP_MODE_FLOW_FORWARD;
+                effect_state.flow_index = 0u;
+                led_show_one(app_current_led(&effect_state));
+            }
+            else if ((received & APP_CMD_REVERSE) != 0u)
+            {
+                running = 1;
+                effect_state.mode = APP_MODE_FLOW_REVERSE;
+                effect_state.flow_index = 2u;
+                led_show_one(app_current_led(&effect_state));
+            }
+        }
+        else if ((result == -RT_ETIMEOUT) && running)
+        {
+            app_advance_led(&effect_state);
+            led_show_one(app_current_led(&effect_state));
+        }
+        else
+        {
+            rt_kprintf("[error] receive LED event failed: %d\n", result);
+            rt_thread_mdelay(10);
+        }
     }
 }
-
 
 static void delete_created_threads(void)
 {
@@ -236,7 +461,8 @@ int main(void)
         return -1;
     }
 
-        rt_kprintf("[app] three-key LED event demo started\n");
+           application_ready = 1;
+    rt_kprintf("[app] three-key LED event demo started\n");
 
 
     return 0;
