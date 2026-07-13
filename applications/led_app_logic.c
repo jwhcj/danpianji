@@ -9,6 +9,13 @@ void app_state_init(app_state_t *state)
 
 unsigned int app_handle_key(app_state_t *state, app_key_t key)
 {
+    if ((key == APP_KEY_1) && (state->key3_count == 2u))
+    {
+        state->mode = APP_MODE_FLOW_FORWARD;
+        state->flow_index = 0u;
+        return APP_CMD_FORWARD;
+    }
+
     if (key != APP_KEY_3)
     {
         return APP_CMD_NONE;
@@ -31,4 +38,17 @@ unsigned int app_handle_key(app_state_t *state, app_key_t key)
 
     app_state_init(state);
     return APP_CMD_ALL_OFF;
+}
+
+unsigned char app_current_led(const app_state_t *state)
+{
+    return state->flow_index;
+}
+
+void app_advance_led(app_state_t *state)
+{
+    if (state->mode == APP_MODE_FLOW_FORWARD)
+    {
+        state->flow_index = (unsigned char)((state->flow_index + 1u) % 3u);
+    }
 }
