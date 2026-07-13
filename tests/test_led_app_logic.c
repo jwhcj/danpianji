@@ -58,10 +58,38 @@ static void test_reverse_flow(void)
     assert(app_current_led(&state) == 2u);
 }
 
+static void test_button_debounce_and_long_press(void)
+{
+    app_button_filter_t filter;
+
+    app_button_filter_init(&filter, 1u);
+    assert(app_button_filter_update(&filter, 0u, 0u) == 0);
+    assert(app_button_filter_update(&filter, 0u, 0u) == 1);
+    assert(app_button_filter_update(&filter, 0u, 0u) == 0);
+    assert(app_button_filter_update(&filter, 0u, 0u) == 0);
+    assert(app_button_filter_update(&filter, 1u, 0u) == 0);
+    assert(app_button_filter_update(&filter, 1u, 0u) == 0);
+    assert(app_button_filter_update(&filter, 0u, 0u) == 0);
+    assert(app_button_filter_update(&filter, 0u, 0u) == 1);
+}
+
+static void test_button_bounce_is_rejected(void)
+{
+    app_button_filter_t filter;
+
+    app_button_filter_init(&filter, 1u);
+    assert(app_button_filter_update(&filter, 0u, 0u) == 0);
+    assert(app_button_filter_update(&filter, 1u, 0u) == 0);
+    assert(app_button_filter_update(&filter, 0u, 0u) == 0);
+    assert(app_button_filter_update(&filter, 0u, 0u) == 1);
+}
+
 int main(void)
 {
     test_mode_cycle();
     test_forward_flow();
     test_reverse_flow();
+    test_button_debounce_and_long_press();
+    test_button_bounce_is_rejected();
     return 0;
 }

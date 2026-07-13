@@ -22,6 +22,13 @@ typedef enum
     APP_KEY_3
 } app_key_t;
 
+typedef struct
+{
+    unsigned char stable_level;
+    unsigned char candidate_level;
+    unsigned char candidate_count;
+} app_button_filter_t;
+
 #define APP_CMD_NONE       0u
 #define APP_CMD_ALL_ON     (1u << 0)
 #define APP_CMD_ALL_OFF    (1u << 1)
@@ -39,6 +46,12 @@ void app_state_init(app_state_t *state);
 unsigned int app_handle_key(app_state_t *state, app_key_t key);
 unsigned char app_current_led(const app_state_t *state);
 void app_advance_led(app_state_t *state);
+
+void app_button_filter_init(app_button_filter_t *filter,
+                            unsigned char initial_level);
+int app_button_filter_update(app_button_filter_t *filter,
+                             unsigned char raw_level,
+                             unsigned char active_level);
 
 #ifdef __cplusplus
 }

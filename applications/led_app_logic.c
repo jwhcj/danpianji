@@ -65,3 +65,43 @@ void app_advance_led(app_state_t *state)
                           : (unsigned char)(state->flow_index - 1u);
     }
 }
+
+void app_button_filter_init(app_button_filter_t *filter,
+                            unsigned char initial_level)
+{
+    filter->stable_level = initial_level;
+    filter->candidate_level = initial_level;
+    filter->candidate_count = 0u;
+}
+
+int app_button_filter_update(app_button_filter_t *filter,
+                             unsigned char raw_level,
+                             unsigned char active_level)
+{
+    if (raw_level == filter->stable_level)
+    {
+        filter->candidate_level = raw_level;
+        filter->candidate_count = 0u;
+        return 0;
+    }
+
+    if (raw_level != filter->candidate_level)
+    {
+        filter->candidate_level = raw_level;
+        filter->candidate_count = 1u;
+        return 0;
+    }
+
+    if (filter->candidate_count < 2u)
+    {
+        filter->candidate_count++;
+    }
+
+    if (filter->candidate_count >= 2u)
+    {
+        filter->stable_level = raw_level;
+        filter->candidate_count = 0u;
+        return (raw_level == active_level) ? 1 : 0;
+    }
+    return 0;
+}
