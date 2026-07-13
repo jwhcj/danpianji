@@ -96,9 +96,41 @@ static rt_uint8_t key_read_level(rt_int32_t pin)
 
 static void key_scan_entry(void *parameter)
 {
+    app_button_filter_t key1_filter;
+    app_button_filter_t key2_filter;
+    app_button_filter_t key3_filter;
+    rt_uint8_t active_level;
+
     (void)parameter;
+    active_level = (KEY_ACTIVE_LEVEL == PIN_HIGH) ? 1u : 0u;
+
+    app_button_filter_init(&key1_filter, key_read_level(KEY1_PIN));
+    app_button_filter_init(&key2_filter, key_read_level(KEY2_PIN));
+    app_button_filter_init(&key3_filter, key_read_level(KEY3_PIN));
+
     while (1)
     {
+        if (app_button_filter_update(&key1_filter,
+                                     key_read_level(KEY1_PIN),
+                                     active_level))
+        {
+            (void)rt_event_send(&key_event, KEY_EVENT_1);
+        }
+
+        if (app_button_filter_update(&key2_filter,
+                                     key_read_level(KEY2_PIN),
+                                     active_level))
+        {
+            (void)rt_event_send(&key_event, KEY_EVENT_2);
+        }
+
+        if (app_button_filter_update(&key3_filter,
+                                     key_read_level(KEY3_PIN),
+                                     active_level))
+        {
+            (void)rt_event_send(&key_event, KEY_EVENT_3);
+        }
+
         rt_thread_mdelay(KEY_SCAN_INTERVAL_MS);
     }
 }
