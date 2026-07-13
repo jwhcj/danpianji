@@ -40,7 +40,39 @@
 #define KEY_SCAN_INTERVAL_MS        20
 #define FLOW_INTERVAL_MS            300
 
+
+static void led_write_all(rt_uint8_t level1,
+                          rt_uint8_t level2,
+                          rt_uint8_t level3)
+{
+    rt_pin_write(LED1_PIN, level1);
+    rt_pin_write(LED2_PIN, level2);
+    rt_pin_write(LED3_PIN, level3);
+}
+
+static void led_all_on(void)
+{
+    led_write_all(LED_ON_LEVEL, LED_ON_LEVEL, LED_ON_LEVEL);
+}
+
+static void led_all_off(void)
+{
+    led_write_all(LED_OFF_LEVEL, LED_OFF_LEVEL, LED_OFF_LEVEL);
+}
+
+static void led_show_one(rt_uint8_t index)
+{
+    led_write_all((index == 0u) ? LED_ON_LEVEL : LED_OFF_LEVEL,
+                  (index == 1u) ? LED_ON_LEVEL : LED_OFF_LEVEL,
+                  (index == 2u) ? LED_ON_LEVEL : LED_OFF_LEVEL);
+}
+
+
 int main(void)
 {
+    rt_pin_mode(LED1_PIN, PIN_MODE_OUTPUT);
+    rt_pin_mode(LED2_PIN, PIN_MODE_OUTPUT);
+    rt_pin_mode(LED3_PIN, PIN_MODE_OUTPUT);
+    led_all_off();
     return 0;
 }
