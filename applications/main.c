@@ -118,6 +118,62 @@ static void led_effect_entry(void *parameter)
     }
 }
 
+
+static void delete_created_threads(void)
+{
+    if (key_scan_thread != RT_NULL)
+    {
+        (void)rt_thread_delete(key_scan_thread);
+        key_scan_thread = RT_NULL;
+    }
+    if (mode_ctrl_thread != RT_NULL)
+    {
+        (void)rt_thread_delete(mode_ctrl_thread);
+        mode_ctrl_thread = RT_NULL;
+    }
+    if (led_effect_thread != RT_NULL)
+    {
+        (void)rt_thread_delete(led_effect_thread);
+        led_effect_thread = RT_NULL;
+    }
+}
+
+static int create_threads(void)
+{
+    key_scan_thread = rt_thread_create("key_scan", key_scan_entry, RT_NULL,
+                                       THREAD_STACK_SIZE, KEY_SCAN_PRIORITY,
+                                       THREAD_TIMESLICE);
+    if (key_scan_thread == RT_NULL)
+    {
+        rt_kprintf("[error] create key_scan thread failed\n");
+        return -1;
+    }
+
+    mode_ctrl_thread = rt_thread_create("mode_ctrl", mode_ctrl_entry, RT_NULL,
+                                        THREAD_STACK_SIZE, MODE_CTRL_PRIORITY,
+                                        THREAD_TIMESLICE);
+    if (mode_ctrl_thread == RT_NULL)
+    {
+        rt_kprintf("[error] create mode_ctrl thread failed\n");
+        delete_created_threads();
+        return -1;
+    }
+
+    led_effect_thread = rt_thread_create("led_effect", led_effect_entry,
+                                         RT_NULL, THREAD_STACK_SIZE,
+                                         LED_EFFECT_PRIORITY,
+                                         THREAD_TIMESLICE);
+    if (led_effect_thread == RT_NULL)
+    {
+        rt_kprintf("[error] create led_effect thread failed\n");
+        delete_created_threads();
+        return -1;
+    }
+    return 0;
+}
+
+
+
 int main(void)
 {
     rt_err_t result;
@@ -144,5 +200,13 @@ int main(void)
         rt_kprintf("[error] initialize led_event failed: %d\n", result);
         return -1;
     }
+
+
+    if (create_threads() != 0)
+    {
+        return -1;
+    }
+
+
     return 0;
 }
