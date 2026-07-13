@@ -135,12 +135,82 @@ static void key_scan_entry(void *parameter)
     }
 }
 
+static unsigned int handle_received_key(app_state_t *state,
+                                        rt_uint32_t received)
+{
+    if ((received & KEY_EVENT_3) != 0u)
+    {
+        return app_handle_key(state, APP_KEY_3);
+    }
+    if ((received & KEY_EVENT_1) != 0u)
+    {
+        return app_handle_key(state, APP_KEY_1);
+    }
+    if ((received & KEY_EVENT_2) != 0u)
+    {
+        return app_handle_key(state, APP_KEY_2);
+    }
+    return APP_CMD_NONE;
+}
+
+static void print_mode_change(const app_state_t *state, unsigned int command)
+{
+    if (command == APP_CMD_ALL_ON)
+    {
+        rt_kprintf("[mode] key3 count=1, all LEDs on\n");
+    }
+    else if ((command == APP_CMD_ALL_OFF) &&
+             (state->mode == APP_MODE_FLOW_READY))
+    {
+        rt_kprintf("[mode] key3 count=2, flow mode ready\n");
+    }
+    else if (command == APP_CMD_ALL_OFF)
+    {
+        rt_kprintf("[mode] key3 count=0, all LEDs off\n");
+    }
+    else if (command == APP_CMD_FORWARD)
+    {
+        rt_kprintf("[flow] forward: LED1 -> LED2 -> LED3\n");
+    }
+    else if (command == APP_CMD_REVERSE)
+    {
+        rt_kprintf("[flow] reverse: LED3 -> LED2 -> LED1\n");
+    }
+}
+
 static void mode_ctrl_entry(void *parameter)
 {
+    app_state_t state;
+    rt_uint32_t received;
+    unsigned int command;
+    rt_err_t result;
+
     (void)parameter;
+    app_state_init(&state);
+
     while (1)
     {
-        rt_thread_mdelay(100);
+        result = rt_event_recv(&key_event,
+                               KEY_EVENT_ALL,
+                               RT_EVENT_FLAG_OR | RT_EVENT_FLAG_CLEAR,
+                               RT_WAITING_FOREVER,
+                               &received);
+        if (result != RT_EOK)
+        {
+            rt_kprintf("[error] receive key event failed: %d\n", result);
+            continue;
+        }
+
+        command = handle_received_key(&state, received);
+        if (command != APP_CMD_NONE)
+        {
+            print_mode_change(&state, command);
+            result = rt_event_send(&led_event, command);
+            if (result != RT_EOK)
+            {
+                rt_kprintf("[error] send LED event failed: %d\n", result);
+            }
+        }
     }
 }
 
