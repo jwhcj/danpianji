@@ -24,30 +24,220 @@
 
 #include <rtthread.h>
 #include <rtdevice.h>
+#include "led_app_logic.h"
 
-#define LED_PIN	3
+#define LED1_PIN                    1
+#define LED2_PIN                    2
+#define LED3_PIN                    3
 
-int main(void)
+#define KEY1_PIN                    10
+#define KEY2_PIN                    11
+#define KEY3_PIN                    12
+
+#define KEY_ACTIVE_LEVEL            PIN_LOW
+#define LED_ON_LEVEL                PIN_HIGH
+#define LED_OFF_LEVEL               PIN_LOW
+
+#define KEY_SCAN_INTERVAL_MS        20
+#define FLOW_INTERVAL_MS            300
+
+#define KEY_SCAN_PRIORITY           8
+#define MODE_CTRL_PRIORITY          9
+#define LED_EFFECT_PRIORITY         10
+#define THREAD_STACK_SIZE           512
+#define THREAD_TIMESLICE            5
+
+#define KEY_EVENT_1                 (1u << 0)
+#define KEY_EVENT_2                 (1u << 1)
+#define KEY_EVENT_3                 (1u << 2)
+#define KEY_EVENT_ALL               (KEY_EVENT_1 | KEY_EVENT_2 | KEY_EVENT_3)
+
+#define LED_EVENT_ALL               (APP_CMD_ALL_ON | APP_CMD_ALL_OFF | \
+                                     APP_CMD_FORWARD | APP_CMD_REVERSE)
+
+static struct rt_event key_event;
+static struct rt_event led_event;
+
+static rt_thread_t key_scan_thread = RT_NULL;
+static rt_thread_t mode_ctrl_thread = RT_NULL;
+static rt_thread_t led_effect_thread = RT_NULL;
+
+
+static void led_write_all(rt_uint8_t level1,
+                          rt_uint8_t level2,
+                          rt_uint8_t level3)
 {
-    return 0;
+    rt_pin_write(LED1_PIN, level1);
+    rt_pin_write(LED2_PIN, level2);
+    rt_pin_write(LED3_PIN, level3);
 }
 
-int led(void)
+static void led_all_on(void)
 {
-    rt_uint8_t count;
+    led_write_all(LED_ON_LEVEL, LED_ON_LEVEL, LED_ON_LEVEL);
+}
 
-    rt_pin_mode(LED_PIN, PIN_MODE_OUTPUT);  
-    
-    for(count = 0 ; count < 10 ;count++)
-    {       
-        rt_pin_write(LED_PIN, PIN_HIGH);
-        rt_kprintf("led on, count : %d\r\n", count);
-        rt_thread_mdelay(500);
-        
-        rt_pin_write(LED_PIN, PIN_LOW);
-        rt_kprintf("led off\r\n");
-        rt_thread_mdelay(500);
+static void led_all_off(void)
+{
+    led_write_all(LED_OFF_LEVEL, LED_OFF_LEVEL, LED_OFF_LEVEL);
+}
+
+static void led_show_one(rt_uint8_t index)
+{
+    led_write_all((index == 0u) ? LED_ON_LEVEL : LED_OFF_LEVEL,
+                  (index == 1u) ? LED_ON_LEVEL : LED_OFF_LEVEL,
+                  (index == 2u) ? LED_ON_LEVEL : LED_OFF_LEVEL);
+}
+
+static rt_uint8_t key_read_level(rt_int32_t pin)
+{
+    return (rt_pin_read(pin) == PIN_HIGH) ? 1u : 0u;
+}
+
+static void key_scan_entry(void *parameter)
+{
+    (void)parameter;
+    while (1)
+    {
+        rt_thread_mdelay(KEY_SCAN_INTERVAL_MS);
+    }
+}
+
+static void mode_ctrl_entry(void *parameter)
+{
+    (void)parameter;
+    while (1)
+    {
+        rt_thread_mdelay(100);
+    }
+}
+
+static void led_effect_entry(void *parameter)
+{
+    (void)parameter;
+    led_all_off();
+    while (1)
+    {
+        rt_thread_mdelay(100);
+    }
+}
+
+
+static void delete_created_threads(void)
+{
+    if (key_scan_thread != RT_NULL)
+    {
+        (void)rt_thread_delete(key_scan_thread);
+        key_scan_thread = RT_NULL;
+    }
+    if (mode_ctrl_thread != RT_NULL)
+    {
+        (void)rt_thread_delete(mode_ctrl_thread);
+        mode_ctrl_thread = RT_NULL;
+    }
+    if (led_effect_thread != RT_NULL)
+    {
+        (void)rt_thread_delete(led_effect_thread);
+        led_effect_thread = RT_NULL;
+    }
+}
+
+static int create_threads(void)
+{
+    key_scan_thread = rt_thread_create("key_scan", key_scan_entry, RT_NULL,
+                                       THREAD_STACK_SIZE, KEY_SCAN_PRIORITY,
+                                       THREAD_TIMESLICE);
+    if (key_scan_thread == RT_NULL)
+    {
+        rt_kprintf("[error] create key_scan thread failed\n");
+        return -1;
+    }
+
+    mode_ctrl_thread = rt_thread_create("mode_ctrl", mode_ctrl_entry, RT_NULL,
+                                        THREAD_STACK_SIZE, MODE_CTRL_PRIORITY,
+                                        THREAD_TIMESLICE);
+    if (mode_ctrl_thread == RT_NULL)
+    {
+        rt_kprintf("[error] create mode_ctrl thread failed\n");
+        delete_created_threads();
+        return -1;
+    }
+
+    led_effect_thread = rt_thread_create("led_effect", led_effect_entry,
+                                         RT_NULL, THREAD_STACK_SIZE,
+                                         LED_EFFECT_PRIORITY,
+                                         THREAD_TIMESLICE);
+    if (led_effect_thread == RT_NULL)
+    {
+        rt_kprintf("[error] create led_effect thread failed\n");
+        delete_created_threads();
+        return -1;
     }
     return 0;
 }
-MSH_CMD_EXPORT(led, RT-Thread first led sample);
+
+
+static int start_threads(void)
+{
+    if (rt_thread_startup(led_effect_thread) != RT_EOK)
+    {
+        rt_kprintf("[error] start led_effect thread failed\n");
+        return -1;
+    }
+    if (rt_thread_startup(mode_ctrl_thread) != RT_EOK)
+    {
+        rt_kprintf("[error] start mode_ctrl thread failed\n");
+        return -1;
+    }
+    if (rt_thread_startup(key_scan_thread) != RT_EOK)
+    {
+        rt_kprintf("[error] start key_scan thread failed\n");
+        return -1;
+    }
+    return 0;
+}
+
+
+int main(void)
+{
+    rt_err_t result;
+
+    rt_pin_mode(LED1_PIN, PIN_MODE_OUTPUT);
+    rt_pin_mode(LED2_PIN, PIN_MODE_OUTPUT);
+    rt_pin_mode(LED3_PIN, PIN_MODE_OUTPUT);
+    led_all_off();
+
+    rt_pin_mode(KEY1_PIN, PIN_MODE_INPUT_PULLUP);
+    rt_pin_mode(KEY2_PIN, PIN_MODE_INPUT_PULLUP);
+    rt_pin_mode(KEY3_PIN, PIN_MODE_INPUT_PULLUP);
+
+    result = rt_event_init(&key_event, "key_evt", RT_IPC_FLAG_FIFO);
+    if (result != RT_EOK)
+    {
+        rt_kprintf("[error] initialize key_event failed: %d\n", result);
+        return -1;
+    }
+
+    result = rt_event_init(&led_event, "led_evt", RT_IPC_FLAG_FIFO);
+    if (result != RT_EOK)
+    {
+        rt_kprintf("[error] initialize led_event failed: %d\n", result);
+        return -1;
+    }
+
+
+    if (create_threads() != 0)
+    {
+        return -1;
+    }
+
+    if (start_threads() != 0)
+    {
+        return -1;
+    }
+
+        rt_kprintf("[app] three-key LED event demo started\n");
+
+
+    return 0;
+}
