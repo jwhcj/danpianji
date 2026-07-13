@@ -216,14 +216,70 @@ static void mode_ctrl_entry(void *parameter)
 
 static void led_effect_entry(void *parameter)
 {
+    app_state_t effect_state;
+    rt_uint32_t received;
+    rt_int32_t timeout;
+    rt_err_t result;
+    int running;
+
     (void)parameter;
+    app_state_init(&effect_state);
+    running = 0;
     led_all_off();
+
     while (1)
     {
-        rt_thread_mdelay(100);
+        timeout = running
+                ? (rt_int32_t)rt_tick_from_millisecond(FLOW_INTERVAL_MS)
+                : RT_WAITING_FOREVER;
+
+        result = rt_event_recv(&led_event,
+                               LED_EVENT_ALL,
+                               RT_EVENT_FLAG_OR | RT_EVENT_FLAG_CLEAR,
+                               timeout,
+                               &received);
+
+        if (result == RT_EOK)
+        {
+            if ((received & APP_CMD_ALL_OFF) != 0u)
+            {
+                running = 0;
+                app_state_init(&effect_state);
+                led_all_off();
+            }
+            else if ((received & APP_CMD_ALL_ON) != 0u)
+            {
+                running = 0;
+                effect_state.mode = APP_MODE_ALL_ON;
+                led_all_on();
+            }
+            else if ((received & APP_CMD_FORWARD) != 0u)
+            {
+                running = 1;
+                effect_state.mode = APP_MODE_FLOW_FORWARD;
+                effect_state.flow_index = 0u;
+                led_show_one(app_current_led(&effect_state));
+            }
+            else if ((received & APP_CMD_REVERSE) != 0u)
+            {
+                running = 1;
+                effect_state.mode = APP_MODE_FLOW_REVERSE;
+                effect_state.flow_index = 2u;
+                led_show_one(app_current_led(&effect_state));
+            }
+        }
+        else if ((result == -RT_ETIMEOUT) && running)
+        {
+            app_advance_led(&effect_state);
+            led_show_one(app_current_led(&effect_state));
+        }
+        else
+        {
+            rt_kprintf("[error] receive LED event failed: %d\n", result);
+            rt_thread_mdelay(10);
+        }
     }
 }
-
 
 static void delete_created_threads(void)
 {
