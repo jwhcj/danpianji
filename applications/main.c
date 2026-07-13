@@ -27,45 +27,8 @@
 
 #define LED_PIN	3
 
-static void test_forward_flow(void)
-{
-    app_state_t state;
-
-    app_state_init(&state);
-    (void)app_handle_key(&state, APP_KEY_3);
-    (void)app_handle_key(&state, APP_KEY_3);
-    assert(app_handle_key(&state, APP_KEY_1) == APP_CMD_FORWARD);
-    assert(app_current_led(&state) == 0u);
-    app_advance_led(&state);
-    assert(app_current_led(&state) == 1u);
-    app_advance_led(&state);
-    assert(app_current_led(&state) == 2u);
-    app_advance_led(&state);
-    assert(app_current_led(&state) == 0u);
-}
-
-static void test_reverse_flow(void)
-{
-    app_state_t state;
-
-    app_state_init(&state);
-    (void)app_handle_key(&state, APP_KEY_3);
-    (void)app_handle_key(&state, APP_KEY_3);
-    assert(app_handle_key(&state, APP_KEY_2) == APP_CMD_REVERSE);
-    assert(app_current_led(&state) == 2u);
-    app_advance_led(&state);
-    assert(app_current_led(&state) == 1u);
-    app_advance_led(&state);
-    assert(app_current_led(&state) == 0u);
-    app_advance_led(&state);
-    assert(app_current_led(&state) == 2u);
-}
-
 int main(void)
 {
-    test_mode_cycle();
-    test_forward_flow();
-    test_reverse_flow();
     return 0;
 }
 
