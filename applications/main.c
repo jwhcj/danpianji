@@ -40,6 +40,14 @@
 #define KEY_SCAN_INTERVAL_MS        20
 #define FLOW_INTERVAL_MS            300
 
+#define KEY_EVENT_1                 (1u << 0)
+#define KEY_EVENT_2                 (1u << 1)
+#define KEY_EVENT_3                 (1u << 2)
+#define KEY_EVENT_ALL               (KEY_EVENT_1 | KEY_EVENT_2 | KEY_EVENT_3)
+
+static struct rt_event key_event;
+static struct rt_event led_event;
+
 
 static void led_write_all(rt_uint8_t level1,
                           rt_uint8_t level2,
@@ -74,12 +82,29 @@ static rt_uint8_t key_read_level(rt_int32_t pin)
 
 int main(void)
 {
+    rt_err_t result;
+
     rt_pin_mode(LED1_PIN, PIN_MODE_OUTPUT);
     rt_pin_mode(LED2_PIN, PIN_MODE_OUTPUT);
     rt_pin_mode(LED3_PIN, PIN_MODE_OUTPUT);
     led_all_off();
+
     rt_pin_mode(KEY1_PIN, PIN_MODE_INPUT_PULLUP);
     rt_pin_mode(KEY2_PIN, PIN_MODE_INPUT_PULLUP);
     rt_pin_mode(KEY3_PIN, PIN_MODE_INPUT_PULLUP);
+
+    result = rt_event_init(&key_event, "key_evt", RT_IPC_FLAG_FIFO);
+    if (result != RT_EOK)
+    {
+        rt_kprintf("[error] initialize key_event failed: %d\n", result);
+        return -1;
+    }
+
+    result = rt_event_init(&led_event, "led_evt", RT_IPC_FLAG_FIFO);
+    if (result != RT_EOK)
+    {
+        rt_kprintf("[error] initialize led_event failed: %d\n", result);
+        return -1;
+    }
     return 0;
 }
