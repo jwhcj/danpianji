@@ -24,6 +24,7 @@
 
 #include <rtthread.h>
 #include <rtdevice.h>
+#include "led_app_logic.h"
 
 #define LED1_PIN                    1
 #define LED2_PIN                    2
@@ -50,6 +51,9 @@
 #define KEY_EVENT_2                 (1u << 1)
 #define KEY_EVENT_3                 (1u << 2)
 #define KEY_EVENT_ALL               (KEY_EVENT_1 | KEY_EVENT_2 | KEY_EVENT_3)
+
+#define LED_EVENT_ALL               (APP_CMD_ALL_ON | APP_CMD_ALL_OFF | \
+                                     APP_CMD_FORWARD | APP_CMD_REVERSE)
 
 static struct rt_event key_event;
 static struct rt_event led_event;
@@ -232,7 +236,7 @@ int main(void)
         return -1;
     }
 
-    rt_kprintf("[app] three-thread framework started\n");
+        rt_kprintf("[app] three-key LED event demo started\n");
 
 
     return 0;
